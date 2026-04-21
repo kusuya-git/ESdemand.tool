@@ -36,15 +36,22 @@ if uploaded_file:
 
     col1, col2 = st.columns(2)
 
+    if "縦：日付　横：時間" in layout:
+        label_left = "日付"
+        label_right = "時間データ"
+    else:
+        label_left = "時間データ"
+        label_right = "日付"
+
     with col1:
-        st.markdown("**日付の開始位置**")
-        date_row = st.number_input("日付の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-        date_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        st.markdown(f"**{label_left}の開始位置**")
+        date_row = st.number_input(f"{label_left}の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+        date_col_idx = st.number_input(f"{label_left}の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     with col2:
-        st.markdown("**時間データの開始位置**")
-        time_data_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-        time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        st.markdown(f"**{label_right}の開始位置**")
+        time_data_row = st.number_input(f"{label_right}の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+        time_col_idx = st.number_input(f"{label_right}の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     # =============================
     # 指定位置のプレビュー
@@ -54,14 +61,14 @@ if uploaded_file:
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("**日付列の内容（先頭10件）**")
+        st.markdown(f"**{label_left}列の内容（先頭10件）**")
         date_preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
-        st.dataframe(date_preview.reset_index(drop=True).rename("日付"), use_container_width=True)
+        st.dataframe(date_preview.reset_index(drop=True).rename(label_left), use_container_width=True)
 
     with col_b:
-        st.markdown("**時間データ列の内容（先頭行）**")
+        st.markdown(f"**{label_right}列の内容（先頭行）**")
         time_preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
-        st.dataframe(time_preview.reset_index(drop=True).rename("時間データ先頭"), use_container_width=True)
+        st.dataframe(time_preview.reset_index(drop=True).rename(label_right), use_container_width=True)
 
     if st.button("プレビューを確認"):
 
@@ -74,7 +81,6 @@ if uploaded_file:
         if "縦：日付　横：時間" in layout:
             dates = df_raw.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
             n_rows = len(dates)
-            # time_data_rowは列名行なので+1してデータ行から取得
             values = df_raw.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
             values.columns = times_generated[:values.shape[1]]
 
@@ -88,9 +94,8 @@ if uploaded_file:
             )
 
         else:
-            dates = df_raw.iloc[int(date_row), int(date_col_idx):].reset_index(drop=True)
-            # time_data_rowは列名行なので+1してデータ行から取得
-            values = df_raw.iloc[int(time_data_row)+1:int(time_data_row)+1+48, int(time_col_idx):].reset_index(drop=True)
+            dates = df_raw.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
+            values = df_raw.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):].reset_index(drop=True)
             values.index = times_generated[:values.shape[0]]
 
             df_data = values.T.copy()
