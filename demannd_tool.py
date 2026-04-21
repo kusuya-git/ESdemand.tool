@@ -55,17 +55,17 @@ if uploaded_files:
             date_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
         with col2:
             st.markdown("**時間ヘッダの位置**（この行の次の行からデータを取得）")
-            time_data_row = st.number_input("時間ヘッダの行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            time_header_row = st.number_input("時間ヘッダの行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
             time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
     else:
         with col1:
-            st.markdown("**時間データの開始位置**（この行からデータを取得）")
-            date_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-            date_col_idx = st.number_input("数値データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+            st.markdown("**時間ラベルの位置**")
+            time_label_col = st.number_input("時間ラベルの列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+            time_data_start_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
         with col2:
             st.markdown("**日付の開始位置**")
-            time_data_row = st.number_input("日付の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-            time_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+            date_row_idx = st.number_input("日付の行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            date_col_start = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     st.subheader("③-② 開始年を入力")
     st.caption("日付に年情報がない場合や、年またぎデータの場合に使用します")
@@ -84,16 +84,16 @@ if uploaded_files:
             st.dataframe(preview.reset_index(drop=True).rename("日付"), use_container_width=True)
         with col_b:
             st.markdown("**時間ヘッダ行の内容（先頭10件）**")
-            preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
+            preview = df_raw.iloc[int(time_header_row), int(time_col_idx):int(time_col_idx)+10]
             st.dataframe(preview.reset_index(drop=True).rename("時間ヘッダ"), use_container_width=True)
     else:
         with col_a:
-            st.markdown("**時間データ列の内容（先頭10件）**")
-            preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)-1]
-            st.dataframe(preview.reset_index(drop=True).rename("時間データ"), use_container_width=True)
+            st.markdown("**時間ラベル列の内容（先頭10件）**")
+            preview = df_raw.iloc[int(time_data_start_row):int(time_data_start_row)+10, int(time_label_col)]
+            st.dataframe(preview.reset_index(drop=True).rename("時間ラベル"), use_container_width=True)
         with col_b:
             st.markdown("**日付行の内容（先頭10件）**")
-            preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
+            preview = df_raw.iloc[int(date_row_idx), int(date_col_start):int(date_col_start)+10]
             st.dataframe(preview.reset_index(drop=True).rename("日付"), use_container_width=True)
 
     if st.button("プレビューを確認"):
@@ -125,35 +125,51 @@ if uploaded_files:
                 if "縦：日付　横：時間" in layout:
                     dates = df_f.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
                     n_rows = len(dates)
-                    # 時間ヘッダの次の行からデータ取得
-                    values = df_f.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
+                    values = df_f.iloc[int(time_header_row)+1:int(time_header_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
                     values.columns = times_generated[:values.shape[1]]
                     df_data = values.copy()
                     df_data.insert(0, "日付", dates.values)
 
-                else:
-                    # 日付行（time_data_row行、time_col_idx列目から）
-                    dates = df_f.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
-                    n_cols = len(dates)
-                    # 数値データはdate_col_idxから（ユーザーが数値開始列を直接指定）
-                    values = df_f.iloc[int(date_row):int(date_row)+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
-                    values.index = times_generated[:values.shape[0]]
-                    df_data = values.T.copy()
-                    df_data.insert(0, "日付", dates.values)
+                    df_long = df_data.melt(
+                        id_vars=["日付"],
+                        var_name="# time",
+                        value_name="消費電力[kW]"
+                    )
 
-                df_long = df_data.melt(
-                    id_vars=["日付"],
-                    var_name="# time",
-                    value_name="消費電力[kW]"
-                )
+                    if use_manual_year:
+                        df_long["日付"] = parse_dates_with_year(df_long["日付"].astype(str), int(start_year))
+                    else:
+                        df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed", errors="coerce")
 
-                if use_manual_year:
-                    df_long["日付"] = parse_dates_with_year(df_long["日付"].astype(str), int(start_year))
                 else:
-                    df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed", errors="coerce")
+                    # 日付を行方向に取得
+                    dates_raw = df_f.iloc[int(date_row_idx), int(date_col_start):].reset_index(drop=True)
+
+                    # 数値データ取得（時間ラベル列の次の列から）
+                    data_col_start = int(date_col_start)
+                    n_cols = len(dates_raw)
+                    values = df_f.iloc[int(time_data_start_row):int(time_data_start_row)+48, data_col_start:data_col_start+n_cols].reset_index(drop=True)
+
+                    # 日付をパース（年またぎ対応）
+                    if use_manual_year:
+                        dates_parsed = parse_dates_with_year(dates_raw.astype(str), int(start_year))
+                    else:
+                        dates_parsed = pd.to_datetime(dates_raw.astype(str), format="mixed", errors="coerce")
+
+                    # 時間ラベルを生成して各列×各時間でDataFrame作成
+                    records = []
+                    for col_i, date_val in enumerate(dates_parsed):
+                        if pd.isna(date_val):
+                            continue
+                        for row_i, time_val in enumerate(times_generated[:values.shape[0]]):
+                            records.append({
+                                "日付": date_val,
+                                "# time": time_val,
+                                "消費電力[kW]": values.iloc[row_i, col_i]
+                            })
+                    df_long = pd.DataFrame(records)
 
                 df_long = df_long.dropna(subset=["日付"])
-
                 df_long["datetime"] = pd.to_datetime(
                     df_long["日付"].dt.strftime("%Y/%m/%d") + " " + df_long["# time"].astype(str)
                 )
