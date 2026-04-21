@@ -11,9 +11,6 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-# =============================
-# ファイル読み込み関数
-# =============================
 def read_file(f):
     name = f.name.lower()
     if name.endswith(".xlsx") or name.endswith(".xls"):
@@ -27,9 +24,6 @@ def read_file(f):
 
 if uploaded_files:
 
-    # =============================
-    # 最初のファイルでプレビュー
-    # =============================
     first_file = uploaded_files[0]
     df_raw = read_file(first_file)
 
@@ -50,25 +44,26 @@ if uploaded_files:
     st.dataframe(df_display, use_container_width=True)
 
     st.subheader("③ 日付・時間の開始位置を指定")
-
     col1, col2 = st.columns(2)
 
     if "縦：日付　横：時間" in layout:
-        label_left = "日付"
-        label_right = "時間データ"
+        with col1:
+            st.markdown("**日付の開始位置**")
+            date_row = st.number_input("日付の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            date_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        with col2:
+            st.markdown("**時間ヘッダの位置**（この行の次の行からデータを取得）")
+            time_data_row = st.number_input("時間ヘッダの行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
     else:
-        label_left = "時間データ"
-        label_right = "日付"
-
-    with col1:
-        st.markdown(f"**{label_left}の開始位置**")
-        date_row = st.number_input(f"{label_left}の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-        date_col_idx = st.number_input(f"{label_left}の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
-
-    with col2:
-        st.markdown(f"**{label_right}の開始位置**")
-        time_data_row = st.number_input(f"{label_right}の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-        time_col_idx = st.number_input(f"{label_right}の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        with col1:
+            st.markdown("**時間データの開始位置**（この行からデータを取得）")
+            date_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            date_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        with col2:
+            st.markdown("**日付の開始位置**")
+            time_data_row = st.number_input("日付の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+            time_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     st.subheader("③-② 開始年を入力")
     st.caption("日付に年情報がない場合や、年またぎデータの場合に使用します")
@@ -78,26 +73,31 @@ if uploaded_files:
         start_year = st.number_input("データの開始年", min_value=2000, max_value=2100, value=2024)
 
     st.subheader("③-確認 指定位置のプレビュー")
-
     col_a, col_b = st.columns(2)
 
-    with col_a:
-        st.markdown(f"**{label_left}列の内容（先頭10件）**")
-        date_preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
-        st.dataframe(date_preview.reset_index(drop=True).rename(label_left), use_container_width=True)
-
-    with col_b:
-        st.markdown(f"**{label_right}列の内容（先頭行）**")
-        time_preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
-        st.dataframe(time_preview.reset_index(drop=True).rename(label_right), use_container_width=True)
+    if "縦：日付　横：時間" in layout:
+        with col_a:
+            st.markdown("**日付列の内容（先頭10件）**")
+            preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
+            st.dataframe(preview.reset_index(drop=True).rename("日付"), use_container_width=True)
+        with col_b:
+            st.markdown("**時間ヘッダ行の内容（先頭10件）**")
+            preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
+            st.dataframe(preview.reset_index(drop=True).rename("時間ヘッダ"), use_container_width=True)
+    else:
+        with col_a:
+            st.markdown("**時間データ列の内容（先頭10件）**")
+            preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
+            st.dataframe(preview.reset_index(drop=True).rename("時間データ"), use_container_width=True)
+        with col_b:
+            st.markdown("**日付行の内容（先頭10件）**")
+            preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
+            st.dataframe(preview.reset_index(drop=True).rename("日付"), use_container_width=True)
 
     if st.button("プレビューを確認"):
 
         times_generated = pd.date_range("00:00", "23:30", freq="30min").strftime("%H:%M").tolist()
 
-        # =============================
-        # 年付与関数
-        # =============================
         def parse_dates_with_year(date_series, start_year):
             parsed = []
             current_year = start_year
@@ -114,9 +114,6 @@ if uploaded_files:
                     parsed.append(pd.NaT)
             return pd.Series(parsed)
 
-        # =============================
-        # 全ファイル処理
-        # =============================
         all_df = []
 
         for f in uploaded_files:
@@ -124,16 +121,21 @@ if uploaded_files:
                 df_f = read_file(f)
 
                 if "縦：日付　横：時間" in layout:
+                    # 日付列
                     dates = df_f.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
                     n_rows = len(dates)
+                    # 時間ヘッダの次の行からデータ取得
                     values = df_f.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
                     values.columns = times_generated[:values.shape[1]]
                     df_data = values.copy()
                     df_data.insert(0, "日付", dates.values)
+
                 else:
+                    # 日付行
                     dates = df_f.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
                     n_cols = len(dates)
-                    values = df_f.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
+                    # 時間データ開始行からそのまま48行取得
+                    values = df_f.iloc[int(date_row):int(date_row)+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
                     values.index = times_generated[:values.shape[0]]
                     df_data = values.T.copy()
                     df_data.insert(0, "日付", dates.values)
@@ -171,9 +173,6 @@ if uploaded_files:
         else:
             st.error("処理できたファイルがありませんでした。設定を見直してください。")
 
-    # =============================
-    # ダウンロード
-    # =============================
     if "df_long" in st.session_state:
 
         df_long = st.session_state["df_long"]
