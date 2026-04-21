@@ -89,8 +89,10 @@ if uploaded_file:
         # datetime作成
         # =============================
         try:
+            # 日付を先に変換（20221101形式にも対応）
+            df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed")
             df_long["datetime"] = pd.to_datetime(
-                df_long["日付"].astype(str) + " " + df_long["# time"].astype(str)
+                df_long["日付"].dt.strftime("%Y/%m/%d") + " " + df_long["# time"].astype(str)
             )
             df_long = df_long.dropna(subset=["datetime"])
             df_long = df_long.sort_values("datetime")
