@@ -95,7 +95,8 @@ if uploaded_file:
 
         else:
             dates = df_raw.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
-            values = df_raw.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):].reset_index(drop=True)
+            n_cols = len(dates)
+            values = df_raw.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
             values.index = times_generated[:values.shape[0]]
 
             df_data = values.T.copy()
