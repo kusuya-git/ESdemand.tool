@@ -42,9 +42,9 @@ if uploaded_file:
         date_col_idx = st.number_input("日付の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     with col2:
-        st.markdown("**時間の開始位置**")
-        time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        st.markdown("**時間データの開始位置**")
         time_data_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+        time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
     # =============================
     # 指定位置のプレビュー
@@ -74,7 +74,8 @@ if uploaded_file:
         if "縦：日付　横：時間" in layout:
             dates = df_raw.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
             n_rows = len(dates)
-            values = df_raw.iloc[int(time_data_row):int(time_data_row)+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
+            # time_data_rowは列名行なので+1してデータ行から取得
+            values = df_raw.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
             values.columns = times_generated[:values.shape[1]]
 
             df_data = values.copy()
@@ -88,7 +89,8 @@ if uploaded_file:
 
         else:
             dates = df_raw.iloc[int(date_row), int(date_col_idx):].reset_index(drop=True)
-            values = df_raw.iloc[int(time_data_row):int(time_data_row)+48, int(time_col_idx):].reset_index(drop=True)
+            # time_data_rowは列名行なので+1してデータ行から取得
+            values = df_raw.iloc[int(time_data_row)+1:int(time_data_row)+1+48, int(time_col_idx):].reset_index(drop=True)
             values.index = times_generated[:values.shape[0]]
 
             df_data = values.T.copy()
