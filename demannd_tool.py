@@ -16,11 +16,13 @@ def read_file(f):
     if name.endswith(".xlsx") or name.endswith(".xls"):
         return pd.read_excel(f, header=None, engine="openpyxl")
     else:
-        try:
-            return pd.read_csv(f, encoding="cp932", header=None)
-        except:
-            f.seek(0)
-            return pd.read_csv(f, encoding="utf-8", header=None)
+        for encoding in ["cp932", "shift_jis", "utf-8", "utf-8-sig", "latin1"]:
+            try:
+                f.seek(0)
+                return pd.read_csv(f, encoding=encoding, header=None)
+            except:
+                continue
+        raise ValueError("文字コードを自動判定できませんでした")
 
 if uploaded_files:
 
