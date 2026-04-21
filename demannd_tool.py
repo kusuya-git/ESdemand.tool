@@ -27,7 +27,6 @@ if uploaded_file:
     st.subheader("② 生データプレビュー（行・列番号付き）")
     st.caption("※ 行番号・列番号は0始まりです")
 
-    # 行・列番号を表示するためにindexとcolumnsを番号にしたDataFrameを表示
     df_display = df_raw.copy()
     df_display.columns = [f"列{i}" for i in range(len(df_raw.columns))]
     df_display.index = [f"行{i}" for i in range(len(df_raw))]
@@ -44,24 +43,42 @@ if uploaded_file:
 
     with col2:
         st.markdown("**時間の開始位置**")
-        time_row = st.number_input("時間の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-        time_col_idx = st.number_input("時間の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        time_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+        time_data_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
+
+    # =============================
+    # 指定位置のプレビュー
+    # =============================
+    st.subheader("③-確認 指定位置のプレビュー")
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.markdown("**日付列の内容（先頭10件）**")
+        date_preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
+        st.dataframe(date_preview.reset_index(drop=True).rename("日付"), use_container_width=True)
+
+    with col_b:
+        st.markdown("**時間データ列の内容（先頭行）**")
+        time_preview = df_raw.iloc[int(time_data_row), int(time_col_idx):int(time_col_idx)+10]
+        st.dataframe(time_preview.reset_index(drop=True).rename("時間データ先頭"), use_container_width=True)
 
     if st.button("プレビューを確認"):
+
+        # 30分刻みの時間ラベルを自動生成
+        times_generated = pd.date_range("00:00", "23:30", freq="30min").strftime("%H:%M").tolist()
 
         # =============================
         # レイアウト別に整形
         # =============================
         if "縦：日付　横：時間" in layout:
-            # 日付列：date_col_idx列のdate_row行目以降
-            # 時間列：time_col_idx列目以降のtime_row行目
-            dates = df_raw.iloc[date_row:, date_col_idx].reset_index(drop=True)
-            times = df_raw.iloc[time_row, time_col_idx:].reset_index(drop=True)
-            values = df_raw.iloc[date_row:, time_col_idx:].reset_index(drop=True)
-            values.columns = times
+            dates = df_raw.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
+            n_rows = len(dates)
+            values = df_raw.iloc[int(time_data_row):int(time_data_row)+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
+            values.columns = times_generated[:values.shape[1]]
 
             df_data = values.copy()
-            df_data.insert(0, "日付", dates)
+            df_data.insert(0, "日付", dates.values)
 
             df_long = df_data.melt(
                 id_vars=["日付"],
@@ -70,11 +87,9 @@ if uploaded_file:
             )
 
         else:
-            # 縦：時間　横：日付
-            dates = df_raw.iloc[date_row, date_col_idx:].reset_index(drop=True)
-            times = df_raw.iloc[time_row:, time_col_idx].reset_index(drop=True)
-            values = df_raw.iloc[time_row:, date_col_idx:].reset_index(drop=True)
-            values.index = times
+            dates = df_raw.iloc[int(date_row), int(date_col_idx):].reset_index(drop=True)
+            values = df_raw.iloc[int(time_data_row):int(time_data_row)+48, int(time_col_idx):].reset_index(drop=True)
+            values.index = times_generated[:values.shape[0]]
 
             df_data = values.T.copy()
             df_data.insert(0, "日付", dates.values)
@@ -89,7 +104,6 @@ if uploaded_file:
         # datetime作成
         # =============================
         try:
-            # 日付を先に変換（20221101形式にも対応）
             df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed")
             df_long["datetime"] = pd.to_datetime(
                 df_long["日付"].dt.strftime("%Y/%m/%d") + " " + df_long["# time"].astype(str)
@@ -100,9 +114,6 @@ if uploaded_file:
             st.subheader("④ 整形後プレビュー（先頭20行）")
             st.dataframe(df_long[["datetime", "消費電力[kW]"]].head(20), use_container_width=True)
 
-            # =============================
-            # ZIP作成
-            # =============================
             st.session_state["df_long"] = df_long
             st.success("プレビューOKなら下のボタンでダウンロードできます！")
 
