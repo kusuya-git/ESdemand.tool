@@ -5,18 +5,22 @@ import io
 
 st.title("デマンドデータ月別変換ツール")
 
-uploaded_file = st.file_uploader("CSVファイルをアップロード", type="csv")
+uploaded_files = st.file_uploader("CSVファイルをアップロード（複数可）", type="csv", accept_multiple_files=True)
 
-if uploaded_file:
+if uploaded_files:
 
     # =============================
-    # 読み込み（全列・全行）
+    # 最初のファイルでプレビュー
     # =============================
+    first_file = uploaded_files[0]
+
     try:
-        df_raw = pd.read_csv(uploaded_file, encoding="cp932", header=None)
+        df_raw = pd.read_csv(first_file, encoding="cp932", header=None)
     except:
-        uploaded_file.seek(0)
-        df_raw = pd.read_csv(uploaded_file, encoding="utf-8", header=None)
+        first_file.seek(0)
+        df_raw = pd.read_csv(first_file, encoding="utf-8", header=None)
+
+    st.caption(f"※ プレビューは「{first_file.name}」を使用しています")
 
     st.subheader("① データの向きを選択")
     layout = st.radio(
@@ -53,9 +57,13 @@ if uploaded_file:
         time_data_row = st.number_input(f"{label_right}の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
         time_col_idx = st.number_input(f"{label_right}の開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
 
-    # =============================
-    # 指定位置のプレビュー
-    # =============================
+    st.subheader("③-② 開始年を入力")
+    st.caption("日付に年情報がない場合や、年またぎデータの場合に使用します")
+    use_manual_year = st.checkbox("年を手動で指定する")
+    start_year = None
+    if use_manual_year:
+        start_year = st.number_input("データの開始年", min_value=2000, max_value=2100, value=2024)
+
     st.subheader("③-確認 指定位置のプレビュー")
 
     col_a, col_b = st.columns(2)
@@ -72,61 +80,87 @@ if uploaded_file:
 
     if st.button("プレビューを確認"):
 
-        # 30分刻みの時間ラベルを自動生成
         times_generated = pd.date_range("00:00", "23:30", freq="30min").strftime("%H:%M").tolist()
 
         # =============================
-        # レイアウト別に整形
+        # 年付与関数
         # =============================
-        if "縦：日付　横：時間" in layout:
-            dates = df_raw.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
-            n_rows = len(dates)
-            values = df_raw.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
-            values.columns = times_generated[:values.shape[1]]
-
-            df_data = values.copy()
-            df_data.insert(0, "日付", dates.values)
-
-            df_long = df_data.melt(
-                id_vars=["日付"],
-                var_name="# time",
-                value_name="消費電力[kW]"
-            )
-
-        else:
-            dates = df_raw.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
-            n_cols = len(dates)
-            values = df_raw.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
-            values.index = times_generated[:values.shape[0]]
-
-            df_data = values.T.copy()
-            df_data.insert(0, "日付", dates.values)
-
-            df_long = df_data.melt(
-                id_vars=["日付"],
-                var_name="# time",
-                value_name="消費電力[kW]"
-            )
+        def parse_dates_with_year(date_series, start_year):
+            parsed = []
+            current_year = start_year
+            prev_month = None
+            for d in date_series:
+                try:
+                    dt = pd.to_datetime(f"{current_year}/{d}", format="mixed")
+                    if prev_month is not None and dt.month < prev_month:
+                        current_year += 1
+                        dt = pd.to_datetime(f"{current_year}/{d}", format="mixed")
+                    prev_month = dt.month
+                    parsed.append(dt)
+                except:
+                    parsed.append(pd.NaT)
+            return pd.Series(parsed)
 
         # =============================
-        # datetime作成
+        # 全ファイル処理
         # =============================
-        try:
-            df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed")
-            df_long["datetime"] = pd.to_datetime(
-                df_long["日付"].dt.strftime("%Y/%m/%d") + " " + df_long["# time"].astype(str)
-            )
-            df_long = df_long.dropna(subset=["datetime"])
-            df_long = df_long.sort_values("datetime")
+        all_df = []
+
+        for f in uploaded_files:
+            try:
+                try:
+                    df_f = pd.read_csv(f, encoding="cp932", header=None)
+                except:
+                    f.seek(0)
+                    df_f = pd.read_csv(f, encoding="utf-8", header=None)
+
+                if "縦：日付　横：時間" in layout:
+                    dates = df_f.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
+                    n_rows = len(dates)
+                    values = df_f.iloc[int(time_data_row)+1:int(time_data_row)+1+n_rows, int(time_col_idx):int(time_col_idx)+48].reset_index(drop=True)
+                    values.columns = times_generated[:values.shape[1]]
+                    df_data = values.copy()
+                    df_data.insert(0, "日付", dates.values)
+                else:
+                    dates = df_f.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
+                    n_cols = len(dates)
+                    values = df_f.iloc[int(date_row)+1:int(date_row)+1+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
+                    values.index = times_generated[:values.shape[0]]
+                    df_data = values.T.copy()
+                    df_data.insert(0, "日付", dates.values)
+
+                df_long = df_data.melt(
+                    id_vars=["日付"],
+                    var_name="# time",
+                    value_name="消費電力[kW]"
+                )
+
+                if use_manual_year:
+                    df_long["日付"] = parse_dates_with_year(df_long["日付"].astype(str), int(start_year))
+                else:
+                    df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed", errors="coerce")
+
+                df_long = df_long.dropna(subset=["日付"])
+
+                df_long["datetime"] = pd.to_datetime(
+                    df_long["日付"].dt.strftime("%Y/%m/%d") + " " + df_long["# time"].astype(str)
+                )
+                df_long = df_long.dropna(subset=["datetime"])
+                all_df.append(df_long)
+
+            except Exception as e:
+                st.warning(f"{f.name} の処理中にエラー：{e}")
+
+        if all_df:
+            df_all = pd.concat(all_df).sort_values("datetime").drop_duplicates(subset=["datetime"])
 
             st.subheader("④ 整形後プレビュー（先頭20行）")
-            st.dataframe(df_long[["datetime", "消費電力[kW]"]].head(20), use_container_width=True)
+            st.dataframe(df_all[["datetime", "消費電力[kW]"]].head(20), use_container_width=True)
+            st.success(f"{len(uploaded_files)}ファイル処理完了！プレビューOKなら下のボタンでダウンロードできます！")
 
-            st.session_state["df_long"] = df_long
-            st.success("プレビューOKなら下のボタンでダウンロードできます！")
-
-        except Exception as e:
-            st.error(f"datetime変換エラー：{e}\n日付・時間の位置指定を見直してください。")
+            st.session_state["df_long"] = df_all
+        else:
+            st.error("処理できたファイルがありませんでした。設定を見直してください。")
 
     # =============================
     # ダウンロード
