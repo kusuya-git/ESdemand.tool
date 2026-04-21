@@ -5,7 +5,25 @@ import io
 
 st.title("デマンドデータ月別変換ツール")
 
-uploaded_files = st.file_uploader("CSVファイルをアップロード（複数可）", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "CSVまたはExcelファイルをアップロード（複数可）",
+    type=["csv", "xlsx", "xls"],
+    accept_multiple_files=True
+)
+
+# =============================
+# ファイル読み込み関数
+# =============================
+def read_file(f):
+    name = f.name.lower()
+    if name.endswith(".xlsx") or name.endswith(".xls"):
+        return pd.read_excel(f, header=None, engine="openpyxl")
+    else:
+        try:
+            return pd.read_csv(f, encoding="cp932", header=None)
+        except:
+            f.seek(0)
+            return pd.read_csv(f, encoding="utf-8", header=None)
 
 if uploaded_files:
 
@@ -13,12 +31,7 @@ if uploaded_files:
     # 最初のファイルでプレビュー
     # =============================
     first_file = uploaded_files[0]
-
-    try:
-        df_raw = pd.read_csv(first_file, encoding="cp932", header=None)
-    except:
-        first_file.seek(0)
-        df_raw = pd.read_csv(first_file, encoding="utf-8", header=None)
+    df_raw = read_file(first_file)
 
     st.caption(f"※ プレビューは「{first_file.name}」を使用しています")
 
@@ -108,11 +121,7 @@ if uploaded_files:
 
         for f in uploaded_files:
             try:
-                try:
-                    df_f = pd.read_csv(f, encoding="cp932", header=None)
-                except:
-                    f.seek(0)
-                    df_f = pd.read_csv(f, encoding="utf-8", header=None)
+                df_f = read_file(f)
 
                 if "縦：日付　横：時間" in layout:
                     dates = df_f.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
