@@ -59,7 +59,7 @@ if uploaded_files:
         with col1:
             st.markdown("**時間データの開始位置**（この行からデータを取得）")
             date_row = st.number_input("時間データの開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
-            date_col_idx = st.number_input("時間データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
+            date_col_idx = st.number_input("数値データの開始列（0始まり）", min_value=0, max_value=len(df_raw.columns)-1, value=0)
         with col2:
             st.markdown("**日付の開始位置**")
             time_data_row = st.number_input("日付の開始行（0始まり）", min_value=0, max_value=len(df_raw)-1, value=0)
@@ -87,7 +87,7 @@ if uploaded_files:
     else:
         with col_a:
             st.markdown("**時間データ列の内容（先頭10件）**")
-            preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)]
+            preview = df_raw.iloc[int(date_row):int(date_row)+10, int(date_col_idx)-1]
             st.dataframe(preview.reset_index(drop=True).rename("時間データ"), use_container_width=True)
         with col_b:
             st.markdown("**日付行の内容（先頭10件）**")
@@ -121,7 +121,6 @@ if uploaded_files:
                 df_f = read_file(f)
 
                 if "縦：日付　横：時間" in layout:
-                    # 日付列
                     dates = df_f.iloc[int(date_row):, int(date_col_idx)].reset_index(drop=True)
                     n_rows = len(dates)
                     # 時間ヘッダの次の行からデータ取得
@@ -131,10 +130,10 @@ if uploaded_files:
                     df_data.insert(0, "日付", dates.values)
 
                 else:
-                    # 日付行
+                    # 日付行（time_data_row行、time_col_idx列目から）
                     dates = df_f.iloc[int(time_data_row), int(time_col_idx):].reset_index(drop=True)
                     n_cols = len(dates)
-                    # 時間データ開始行からそのまま48行取得
+                    # 数値データはdate_col_idxから（ユーザーが数値開始列を直接指定）
                     values = df_f.iloc[int(date_row):int(date_row)+48, int(date_col_idx):int(date_col_idx)+n_cols].reset_index(drop=True)
                     values.index = times_generated[:values.shape[0]]
                     df_data = values.T.copy()
