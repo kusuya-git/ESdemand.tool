@@ -142,21 +142,15 @@ if uploaded_files:
                         df_long["日付"] = pd.to_datetime(df_long["日付"].astype(str), format="mixed", errors="coerce")
 
                 else:
-                    # 日付を行方向に取得
                     dates_raw = df_f.iloc[int(date_row_idx), int(date_col_start):].reset_index(drop=True)
-
-                    # 数値データ取得（時間ラベル列の次の列から）
-                    data_col_start = int(date_col_start)
                     n_cols = len(dates_raw)
-                    values = df_f.iloc[int(time_data_start_row):int(time_data_start_row)+48, data_col_start:data_col_start+n_cols].reset_index(drop=True)
+                    values = df_f.iloc[int(time_data_start_row):int(time_data_start_row)+48, int(date_col_start):int(date_col_start)+n_cols].reset_index(drop=True)
 
-                    # 日付をパース（年またぎ対応）
                     if use_manual_year:
                         dates_parsed = parse_dates_with_year(dates_raw.astype(str), int(start_year))
                     else:
                         dates_parsed = pd.to_datetime(dates_raw.astype(str), format="mixed", errors="coerce")
 
-                    # 時間ラベルを生成して各列×各時間でDataFrame作成
                     records = []
                     for col_i, date_val in enumerate(dates_parsed):
                         if pd.isna(date_val):
@@ -204,13 +198,18 @@ if uploaded_files:
                     continue
 
                 year = df_month["datetime"].dt.year.iloc[0]
-                df_month["# time"] = df_month["datetime"].dt.strftime("%Y/%m/%d %H:%M")
+
+                # ラプラス形式：2022/1/1 0:00（ゼロ埋めなし）
+                df_month["# time"] = df_month["datetime"].apply(
+                    lambda x: f"{x.year}/{x.month}/{x.day} {x.hour}:{x.minute:02d}"
+                )
 
                 csv_buffer = io.BytesIO()
                 df_month[["# time", "消費電力[kW]"]].to_csv(
                     csv_buffer,
                     index=False,
-                    encoding="utf-8-sig"
+                    encoding="cp932",
+                    sep=","
                 )
 
                 filename = f"{year}年{month:02d}月.csv"
